@@ -1,15 +1,17 @@
 // ==UserScript==
 // @name         Flaticon SVG Downloader
-// @version      1.0
+// @version      1.1
 // @description  Download SVG icons from Flaticon.
 // @author       BabaYaga0179
 // @namespace    https://github.com/BabaYaga0179/
 // @match        *://www.flaticon.com/*
 // @grant        none
+// @license     MIT
 // @icon        https://www.flaticon.com/favicon.ico
+// @downloadURL none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
     // Function to add download button to page
@@ -22,7 +24,8 @@
 
         const downloadButton = document.createElement('a');
         downloadButton.href = '#';
-        downloadButton.className = 'btn col mg-none bj-button bj-button--primary';
+        downloadButton.className =
+            'btn col mg-none bj-button bj-button--primary';
         downloadButton.id = 'custom-download-button';
         downloadButton.innerHTML = '<span>Download SVG</span>';
         downloadButton.addEventListener('click', (event) => {
@@ -34,48 +37,70 @@
     }
 
     // SVG download function
-    function downloadSVG() {
-        var url = window.location.href.split("?")[0];
-        var filename = url.split("/")[url.split("/").length - 1];
-        var id = filename.split("_")[1];
+    async function downloadSVG() {
+        var url = window.location.href.split('?')[0];
+        var filename = url.split('/')[url.split('/').length - 1];
+        var id = filename.split('_')[1];
+        console.log(`Filename: ${filename}, ID: ${id}`);
+
         if (!id) {
-            alert("You can only download an SVG icon while viewing an icon.");
+            alert('You can only download an SVG icon while viewing an icon.');
             return;
         }
-        var onlyName = filename.split("_")[0];
 
         function downloadURI(uri, name) {
-            var link = document.createElement("a");
-            link.setAttribute("download", name);
+            var link = document.createElement('a');
+            link.setAttribute('download', name);
             link.href = uri;
             document.body.appendChild(link);
             link.click();
             link.remove();
         }
 
-        var loggedin = document.getElementById("gr_connected");
+        var loggedin = document.getElementById('gr_connected');
         if (!loggedin) {
-            alert("Please login before clicking on me.");
+            alert('Please login before clicking on me.');
             return;
         }
 
-        fetch("https://www.flaticon.com/editor/icon/svg/" + id + "?type=standard")
-        .then((response) => {
+        try {
+            const response = await fetch(
+                'https://www.flaticon.com/editor/icon/svg/' +
+                id +
+                '?type=standard'
+            );
             if (!response.ok) {
-                throw new Error("Network response was not ok " + response.statusText);
+                throw new Error(
+                    'Network response was not ok ' + response.statusText
+                );
             }
-            return response.json();
-        })
-        .then((data) => {
+
+            const data = await response.json();
+
             if (!data.url) {
-                throw new Error("Invalid response data");
+                throw new Error('Invalid response data');
             }
-            downloadURI(data.url, onlyName + ".svg");
-        })
-        .catch((error) => {
-            console.error("Error downloading SVG:", error);
-            alert("Something went wrong >.<");
-        });
+
+            // Fetch actual SVG content (as Blob)
+            const svgResponse = await fetch(data.url);
+            const svgBlob = await svgResponse.blob();
+
+            const blobUrl = URL.createObjectURL(svgBlob);
+
+            // Trigger download with Blob URL
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `${filename}.svg`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            // Optional: free up memory
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error(error);
+            alert('Something went wrong >.<');
+        }
     }
 
     // Create MutationObserver to monitor changes in DOM
@@ -95,5 +120,4 @@
 
     // Call the download button constructor if the target element already exists in the DOM
     addDownloadButton();
-
 })();
